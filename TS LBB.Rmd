@@ -10,6 +10,7 @@ output:
     toc_float:
       collapsed: true
     df_print: paged
+    number_sections : True
 ---
 
 ```{r setup, include=FALSE}
