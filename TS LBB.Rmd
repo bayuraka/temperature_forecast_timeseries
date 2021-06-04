@@ -1,0 +1,244 @@
+---
+title: "Temperature Climate Forecasting"
+author: "By : Bayu Raka Janasri"
+date: "6/2/2021"
+output:
+  html_document:
+    df_print: paged
+    highlight: zenburn
+    theme: spacelab
+    toc: true
+    toc_float:
+      collapsed: no
+    number_sections : True
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      fig.align = "center")
+options(scipen = 999)
+```
+# Introduction
+
+![](Climate.jpeg)
+Hello everyone !!!
+
+The Dataset is Indian climate, this dataset provides data from 1st January 2013 to 24th April 2017 in the city of Delhi, India. The 4 parameters here are meantemp, humidity, wind_speed, meanpressure. At this moment we will build some models for predict temperature using this dataset.
+
+Source: https://www.kaggle.com/sumanthvrao/daily-climate-time-series-data.
+
+# Data Preparation
+
+## Import Library
+
+```{r warning=FALSE, message=FALSE}
+library(dplyr) # for data wrangling
+library(lubridate) # date manipulation
+library(TSstudio) # time series interactive viz
+library(forecast) # time series library
+library(tseries) # for adf.test
+```
+
+## Read Data
+
+From the dataset there are already train and data test, we don't have to split them into two data anymore. 
+
+### Import data train 
+```{r}
+climate_train <- read.csv("DailyDelhiClimateTrain.csv")
+head(climate_train)
+```
+### Import data test
+```{r}
+climate_test <- read.csv("DailyDelhiClimateTest.csv")
+head(climate_test)
+```
+## Check data type
+
+```{r}
+glimpse(climate_train)
+```
+Time series is a method of analyzing and processing data in which the values are affected by time. The action of predicting future values based on its value in the previous period of time is called forecasting.
+
+The data which formatted into a time series (ts) object must have some characteristics:
+
+- no missing intervals
+- no missing values
+- data should be ordered by time
+
+## Check Missing Value
+
+We have to check if there is any missing values in our dataset. There is no missing value on our dataset.
+```{r}
+anyNA(climate_train)
+anyNA(climate_test)
+```
+## Check data range
+
+We have to check our data range. This is important for time series prediction, it can help us for choosing right frequency.
+```{r}
+range(climate_train$date)
+range(climate_test$date)
+```
+## Check missing interval
+
+```{r}
+interval(start = head(climate_train$date)[1], end = tail(climate_train$date)[1])
+interval(start = head(climate_test$date)[1], end = tail(climate_test$date)[1])
+```
+# Data Pre-processing
+
+## Feature Engineering
+
+**Selecting column**
+
+Take date and meantemp column form test data.
+
+```{r}
+test_clean <- climate_test %>% 
+                select(date, meantemp)
+```
+
+Take date and meantemp column for train data.
+
+```{r}
+train_clean <- climate_train %>% 
+                select(date, meantemp)
+```
+
+**Create time series object for data train**
+
+After we creating ts object, we can plot our object and see the graph.
+```{r}
+ts_train <- ts(data = train_clean$meantemp,
+                start = c(2013,01),
+                frequency = 365)
+autoplot(ts_train)
+```
+**Making time series object for data test**
+
+After we creating ts object, we can plot our object and see the graph.
+```{r}
+ts_test <- ts(data = test_clean$meantemp,
+                start = c(2017,01),
+                frequency = 365)
+autoplot(ts_test)
+```
+**Decomposing**
+
+Decomposing a time series means separating it into its constituent components.
+```{r}
+climate_dc <- decompose(ts_train)
+plot(climate_dc)
+```
+From our graph above we conclude our dataset have trend and seasonal. This is important to know what is our data characteristic, we choose their model based on their character.
+
+# Modeling
+
+### Holt-Winters Model 
+
+**Create Holt-Winters Model**
+```{r}
+climate_hw <- HoltWinters(ts_train,seasonal = "additive")
+climate_hw
+```
+
+**Forecast model**
+
+```{r}
+climate_forecast <- forecast(climate_hw, h=114)
+climate_forecast
+```
+
+**Check Accuracy**
+```{r}
+forecast::accuracy(climate_forecast, ts_test)
+```
+
+### Arima Model
+
+Before creating arima model, we have to make sure our data is stationary by using `adf.test()` from library `tseries`.
+
+**Checking stationary data**
+```{r}
+adf.test(ts_train)
+```
+Our `p-value > 0.05` that means our data is not stationer. 
+If our data is not stationer we have to differencing.
+
+```{r}
+ts_train_diff <- ts_train %>% diff()
+adf.test(ts_train_diff)
+```
+After differencing our `p-value < 0.05`, it means our data already stationer.
+
+**Create Arima model**
+```{r}
+climate_auto <- auto.arima(ts_train, seasonal = T)
+climate_auto
+```
+
+**Forecasting Arima**
+```{r}
+climate_auto_f <- forecast(climate_auto, h=114)
+climate_auto_f
+```
+**Check accuracy**
+```{r}
+accuracy(climate_auto_f, ts_test)
+```
+### STLM Model
+
+**Create STLM Model**
+```{r}
+climate_stlm <- stlm(y= ts_train,
+                     s.window = 356,
+                     method = "arima")
+
+summary(climate_stlm$model)
+```
+
+**Forecasting**
+```{r}
+climate_stlm_forecast <- forecast(climate_stlm, h = 114)
+```
+
+**Check Accuracy**
+```{r}
+accuracy(climate_stlm_forecast, ts_test)
+```
+**Visualisasi**
+```{r}
+ts_train %>% 
+  autoplot(series = "Actual") +
+  autolayer(climate_stlm_forecast$fitted, series = "Train") +
+  autolayer(climate_stlm_forecast$mean, series = "Test")
+```
+From the analysis above, we can conclude that we have sucsesfully forecast mean temperature and found STLM as the best model with the lowest error (MAPE ~12.15).
+
+# Assumption
+
+## No auto-correlation residual
+```{r}
+forecast::Acf(climate_stlm$residuals)
+```
+Based on acf above we can see there are some autocorellation. We have to check more detail our autocorelaltion is significant or not because our mind can trick us. We do Ljung-box test to make sure.
+
+```{r}
+Box.test(climate_stlm$residuals, type = "Ljung-Box")
+```
+`p-value >0.05` that means there is no autocorrelation.
+
+## Normality residual
+
+```{r}
+hist(climate_stlm$residuals, breaks = 20)
+```
+```{r}
+shapiro.test(climate_stlm$residuals)
+```
+`p-value < 0.05`, our forecast residuals are not distributed normally.
+
+Based on the assumption check, there is no autocorrelation on our forecast residuals (p-value > 0.05), but our forecast’s residuals are not distributed normally, therefore it’s residuals may not be appeared around its mean as seen in the histogram. But, if we inspect the distribution of residuals through a line plot, it is actually resembles the error plot from our time series object decomposition.
+
+In a time series, such errors might emerge from various unpredictable events and is actually quite unavoidable. One strategy to overcome it is to analyze what kinds of unpredictable events that might occur and occurs frequently.
