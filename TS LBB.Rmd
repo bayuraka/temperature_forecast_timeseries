@@ -4,13 +4,12 @@ author: "By : Bayu Raka Janasri"
 date: "6/2/2021"
 output:
   html_document:
-    df_print: paged
-    highlight: zenburn
-    theme: spacelab
+    theme: flatly
+    higlight: zenburn
     toc: true
     toc_float:
-      collapsed: no
-    number_sections : True
+      collapsed: true
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
