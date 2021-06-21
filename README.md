@@ -1,10 +1,10 @@
 # Temperature Climate Forecasting
 
 Hello fellas!!
-Please check my lastest time series predicition using climate dataset.
+Please check my lastest project unsupervised learning using wholesale dataset.
 Enjoy!
 
 Detail report on link below:
-https://rpubs.com/bayuraka/temperature_forecasting_timeseries
+https://rpubs.com/bayuraka/wholesale_ul
 
 ![image](https://github.com/bayuraka/temperature_forecast_timeseries/blob/main/Climate.jpeg)
